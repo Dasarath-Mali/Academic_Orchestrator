@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Scrum Board — Academic Orchestrator</title>
+  <link rel="stylesheet" href="/dashboard/static/style.css"/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+  <nav class="sidebar">
+    <div class="sidebar-logo"><span class="logo-icon">🎓</span><span class="logo-text">Orchestrator</span></div>
+    <ul class="nav-links">
+      <li><a href="index.html" class="nav-link"><span>📅</span> Deadlines</a></li>
+      <li><a href="research.html" class="nav-link"><span>🔍</span> Research</a></li>
+      <li><a href="reviews.html" class="nav-link"><span>🔬</span> Code Review</a></li>
+      <li><a href="scrum.html" class="nav-link"><span>👥</span> Scrum Board</a></li>
+    </ul>
+  </nav>
+
+  <main class="main-content">
+    <header class="page-header">
+      <div>
+        <h1>Scrum Master Agent</h1>
+        <p class="subtitle">Team GitHub activity, stale issues, and AI-drafted nudge messages</p>
+      </div>
+      <div class="header-actions">
+        <button class="btn-primary" onclick="runSprintCheck()" id="sprint-btn">⚡ Run Sprint Check</button>
+      </div>
+    </header>
+
+    <!-- Quick Stats -->
+    <div class="stats-row" id="scrum-stats">
+      <div class="stat-card"><span class="stat-value" id="stat-issues">—</span><span class="stat-label">Open Issues</span></div>
+      <div class="stat-card"><span class="stat-value" id="stat-prs">—</span><span class="stat-label">Open PRs</span></div>
+      <div class="stat-card urgent"><span class="stat-value" id="stat-stale">—</span><span class="stat-label">Stale Issues</span></div>
+    </div>
+
+    <!-- Recent Commits -->
+    <section class="card">
+      <div class="card-header"><h2>Recent Commits</h2><button class="btn-ghost" onclick="loadDashboard()">↻ Refresh</button></div>
+      <div id="commits-container"><div class="loading-spinner">⏳ Loading…</div></div>
+    </section>
+
+    <!-- Stale Issues -->
+    <section class="card" id="stale-section" style="display:none">
+      <div class="card-header"><h2>⚠️ Stale Issues</h2></div>
+      <div id="stale-container"></div>
+    </section>
+
+    <!-- Nudge Messages -->
+    <section class="card" id="nudge-section" style="display:none">
+      <div class="card-header"><h2>💬 AI-Drafted Nudge Messages</h2></div>
+      <div id="nudge-container"></div>
+    </section>
+
+    <!-- Contributor Activity -->
+    <section class="card" id="activity-section" style="display:none">
+      <div class="card-header"><h2>📊 Contributor Activity (Last 7 Days)</h2></div>
+      <div id="activity-container"></div>
+    </section>
+  </main>
+
+  <script src="/static/app.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', loadDashboard);
+
+    async function loadDashboard() {
+      const container = document.getElementById('commits-container');
+      container.innerHTML = '<div class="loading-spinner">⏳ Loading…</div>';
+      try {
+        const res = await fetch('/api/scrum/dashboard');
+        const data = await res.json();
+        if (data.error) throw new Error(data.error);
+
+        document.getElementById('stat-issues').textContent = data.open_issues_count ?? '—';
+        document.getElementById('stat-prs').textContent = data.open_prs_count ?? '—';
+
+        const commits = data.recent_commits || [];
+        if (!commits.length) {
+          container.innerHTML = '<div class="empty-state">No recent commits.</div>';
+          return;
+        }
+        container.innerHTML = `<table class="data-table">
+          <thead><tr><th>SHA</th><th>Author</th><th>Message</th><th>Date</th></tr></thead>
+          <tbody>${commits.map(c => `<tr>
+            <td><code class="sha">${c.sha}</code></td>
+            <td>@${c.author}</td>
+            <td>${c.message}</td>
+            <td>${new Date(c.date).toLocaleString('en-IN')}</td>
+          </tr>`).join('')}</tbody>
+        </table>`;
+      } catch(err) {
+        container.innerHTML = `<div class="error-state">❌ ${err.message}<br><small>Make sure your GitHub token & repo are configured.</small></div>`;
+      }
+    }
+
+    async function runSprintCheck() {
+      const btn = document.getElementById('sprint-btn');
+      btn.disabled = true;
+      btn.textContent = '⏳ Running…';
+      try {
+        const res = await fetch('/api/scrum');
+        const data = await res.json();
+        if (data.error) throw new Error(data.error);
+
+        const stale = data.stale_issues || [];
+        const nudges = data.nudge_messages || [];
+        const activity = data.contributor_activity || [];
+        const openPRs = data.open_prs || [];
+
+        document.getElementById('stat-stale').textContent = stale.length;
+
+        // Stale issues
+        if (stale.length) {
+          document.getElementById('stale-section').style.display = '';
+          document.getElementById('stale-container').innerHTML = stale.map(i => `
+            <div class="stale-issue">
+              <a href="${i.url}" target="_blank" class="issue-title">#${i.number}: ${i.title}</a>
+              <div class="issue-meta">
+                Stale for <strong>${i.days_stale}d</strong>
+                ${i.assignees.length ? `| Assigned to: ${i.assignees.map(a=>`@${a}`).join(', ')}` : '| Unassigned'}
+              </div>
+            </div>`).join('');
+        }
+
+        // Nudge messages
+        if (nudges.length) {
+          document.getElementById('nudge-section').style.display = '';
+          document.getElementById('nudge-container').innerHTML = nudges.map(n => `
+            <div class="nudge-card">
+              <div class="nudge-header">
+                <span class="nudge-recipient">To: @${n.recipient}</span>
+                <span class="nudge-context">${n.context}</span>
+              </div>
+              <p class="nudge-message">"${n.message}"</p>
+            </div>`).join('');
+        }
+
+        // Activity
+        if (activity.length) {
+          document.getElementById('activity-section').style.display = '';
+          document.getElementById('activity-container').innerHTML = `
+            <table class="data-table">
+              <thead><tr><th>Team Member</th><th>Commits (7d)</th><th>Status</th></tr></thead>
+              <tbody>${activity.map(a => `<tr>
+                <td>@${a.username}</td>
+                <td>${a.commits_last_7d}</td>
+                <td><span class="activity-badge ${a.commits_last_7d > 0 ? 'active' : 'inactive'}">${a.commits_last_7d > 0 ? '✅ Active' : '⚠️ Inactive'}</span></td>
+              </tr>`).join('')}</tbody>
+            </table>`;
+        }
+      } catch(err) {
+        alert('Sprint check failed: ' + err.message);
+      }
+      btn.disabled = false;
+      btn.textContent = '⚡ Run Sprint Check';
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,34 @@
+# ── Environment & Secrets ─────────────────────────────────────────────────────
+config/.env
+.env
+
+# ── Python ────────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+env/
+*.egg-info/
+dist/
+build/
+
+# ── Data (don't commit user PDFs or generated DBs) ───────────────────────────
+data/raw_syllabi/*.pdf
+data/research_notes/*
+data/vector_db/*
+!data/raw_syllabi/.gitkeep
+!data/research_notes/.gitkeep
+!data/vector_db/.gitkeep
+
+# ── Logs ──────────────────────────────────────────────────────────────────────
+logs/*.log
+
+# ── IDE ───────────────────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store

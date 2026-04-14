@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Academic Orchestrator</title>
+  <link rel="stylesheet" href="/dashboard/static/style.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+  <!-- Sidebar -->
+  <nav class="sidebar">
+    <div class="sidebar-logo">
+      <span class="logo-icon">🎓</span>
+      <span class="logo-text">Orchestrator</span>
+    </div>
+    <ul class="nav-links">
+      <li><a href="index.html" class="nav-link"><span>📅</span> Deadlines</a></li>
+      <li><a href="research.html" class="nav-link"><span>🔍</span> Research</a></li>
+      <li><a href="reviews.html" class="nav-link"><span>🔬</span> Code Review</a></li>
+      <li><a href="scrum.html" class="nav-link"><span>👥</span> Scrum Board</a></li>
+    </ul>
+    <div class="sidebar-footer">
+      <div class="status-dot" id="status-dot"></div>
+      <span id="status-text">Connecting…</span>
+    </div>
+  </nav>
+
+  <!-- Main Content -->
+  <main class="main-content">
+    <header class="page-header">
+      <div>
+        <h1>Deadline Tracker</h1>
+        <p class="subtitle">Upcoming deadlines extracted from your syllabi</p>
+      </div>
+      <div class="header-actions">
+        <select id="days-filter" class="select-input" onchange="loadDeadlines()">
+          <option value="7">Next 7 days</option>
+          <option value="14">Next 14 days</option>
+          <option value="30" selected>Next 30 days</option>
+          <option value="90">Next 90 days</option>
+        </select>
+      </div>
+    </header>
+
+    <!-- Stats Row -->
+    <div class="stats-row" id="stats-row">
+      <div class="stat-card">
+        <span class="stat-value" id="stat-total">—</span>
+        <span class="stat-label">Total Upcoming</span>
+      </div>
+      <div class="stat-card urgent">
+        <span class="stat-value" id="stat-urgent">—</span>
+        <span class="stat-label">Due This Week</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-value" id="stat-courses">—</span>
+        <span class="stat-label">Active Courses</span>
+      </div>
+    </div>
+
+    <!-- Deadlines List -->
+    <section class="card">
+      <div class="card-header">
+        <h2>Deadlines</h2>
+        <span class="badge" id="deadline-count">Loading…</span>
+      </div>
+      <div id="deadlines-container" class="deadlines-list">
+        <div class="loading-spinner">⏳ Loading deadlines…</div>
+      </div>
+    </section>
+  </main>
+
+  <script src="/static/app.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      loadDeadlines();
+      checkStatus();
+    });
+
+    async function loadDeadlines() {
+      const days = document.getElementById('days-filter').value;
+      const container = document.getElementById('deadlines-container');
+      container.innerHTML = '<div class="loading-spinner">⏳ Loading…</div>';
+
+      try {
+        const res = await fetch(`/api/deadlines?days=${days}`);
+        const data = await res.json();
+        const deadlines = data.deadlines || [];
+
+        document.getElementById('stat-total').textContent = deadlines.length;
+        document.getElementById('deadline-count').textContent = deadlines.length + ' items';
+
+        const now = new Date();
+        const weekAhead = new Date(now.getTime() + 7 * 86400000);
+        const urgent = deadlines.filter(d => new Date(d.deadline_date) <= weekAhead);
+        document.getElementById('stat-urgent').textContent = urgent.length;
+
+        const courses = new Set(deadlines.map(d => d.course_name));
+        document.getElementById('stat-courses').textContent = courses.size;
+
+        if (deadlines.length === 0) {
+          container.innerHTML = '<div class="empty-state">🎉 No deadlines in this window. Take a breather!</div>';
+          return;
+        }
+
+        container.innerHTML = deadlines.map(d => buildDeadlineCard(d)).join('');
+      } catch (err) {
+        container.innerHTML = `<div class="error-state">❌ Failed to load: ${err.message}</div>`;
+      }
+    }
+
+    function buildDeadlineCard(d) {
+      const date = new Date(d.deadline_date);
+      const now = new Date();
+      const daysLeft = Math.ceil((date - now) / 86400000);
+      const urgencyClass = daysLeft <= 1 ? 'urgent' : daysLeft <= 3 ? 'soon' : '';
+      const typeEmoji = {assignment:'📝', quiz:'❓', exam:'📋', project:'🚀', presentation:'🎤'}[d.deadline_type] || '📌';
+
+      return `
+        <div class="deadline-card ${urgencyClass}">
+          <div class="deadline-left">
+            <span class="deadline-type-badge ${d.deadline_type}">${typeEmoji} ${d.deadline_type}</span>
+            <h3 class="deadline-title">${d.title}</h3>
+            <span class="deadline-course">${d.course_name || 'Unknown Course'}</span>
+          </div>
+          <div class="deadline-right">
+            <div class="deadline-date">
+              <span class="date-label">${date.toLocaleDateString('en-IN', {day:'numeric', month:'short', year:'numeric'})}</span>
+              <span class="days-left ${urgencyClass}">${daysLeft === 0 ? '🔴 TODAY' : daysLeft < 0 ? '⚫ PAST' : `${daysLeft}d left`}</span>
+            </div>
+            ${d.weight_percent ? `<span class="weight-badge">${d.weight_percent}%</span>` : ''}
+            <button class="btn-done" onclick="markDone(${d.id})">✓ Done</button>
+          </div>
+        </div>`;
+    }
+
+    async function markDone(id) {
+      await fetch(`/api/mark_done/${id}`, { method: 'POST' });
+      loadDeadlines();
+    }
+
+    async function checkStatus() {
+      const dot = document.getElementById('status-dot');
+      const txt = document.getElementById('status-text');
+      try {
+        await fetch('/api/deadlines?days=1');
+        dot.classList.add('online');
+        txt.textContent = 'System Online';
+      } catch {
+        dot.classList.add('offline');
+        txt.textContent = 'DB Offline';
+      }
+    }
+  </script>
+</body>
+</html>

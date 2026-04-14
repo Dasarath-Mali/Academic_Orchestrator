@@ -1,0 +1,55 @@
+# ─────────────────────────────────────────────────────────────────────────────
+#  Academic Orchestrator — User Settings
+# ─────────────────────────────────────────────────────────────────────────────
+
+user:
+  name: "Your Name"
+  timezone: "Asia/Kolkata"           # Change to your local timezone
+
+# ── Folder Watching ───────────────────────────────────────────────────────────
+paths:
+  watch_folder:    "data/raw_syllabi"     # Drop PDFs here
+  research_notes:  "data/research_notes"
+  vector_db:       "data/vector_db"
+  logs:            "logs"
+
+# ── Notifications ─────────────────────────────────────────────────────────────
+notifications:
+  method: "discord"                  # "discord" | "email" | "both"
+  reminder_days_before: [7, 3, 1]   # Send reminders N days before each deadline
+
+# ── Scheduler ─────────────────────────────────────────────────────────────────
+scheduler:
+  morning_digest_time: "08:00"       # Daily summary time (HH:MM 24-hour)
+  check_interval_seconds: 30
+
+# ── AI Model — Google Gemini (FREE) ───────────────────────────────────────────
+# Get your free key at: https://aistudio.google.com
+# gemini-1.5-flash  → fastest, generous free quota  ✅ recommended
+# gemini-1.5-pro    → smarter but lower free quota
+ai:
+  model: "gemini-1.5-flash"
+
+# ── Research Agent ────────────────────────────────────────────────────────────
+researcher:
+  max_github_results:  10
+  max_web_results:     8
+  synthesis_max_tokens: 1500
+
+# ── Code Review Agent ─────────────────────────────────────────────────────────
+code_reviewer:
+  languages: ["python", "c", "cpp", "javascript"]
+  run_bandit: true
+  run_pylint: true
+  complexity_threshold: 10           # McCabe cyclomatic complexity warning level
+
+# ── Scrum Master Agent ────────────────────────────────────────────────────────
+scrum_master:
+  stale_days_threshold: 2            # Flag issues idle for N days
+  auto_message_teammates: false      # Set true to auto-post messages
+
+# ── Dashboard ─────────────────────────────────────────────────────────────────
+dashboard:
+  host: "0.0.0.0"
+  port: 5000
+  theme: "dark"

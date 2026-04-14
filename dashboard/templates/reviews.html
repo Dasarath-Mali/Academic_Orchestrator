@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Code Review — Academic Orchestrator</title>
+  <link rel="stylesheet" href="/dashboard/static/style.css"/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+  <nav class="sidebar">
+    <div class="sidebar-logo"><span class="logo-icon">🎓</span><span class="logo-text">Orchestrator</span></div>
+    <ul class="nav-links">
+      <li><a href="index.html" class="nav-link"><span>📅</span> Deadlines</a></li>
+      <li><a href="research.html" class="nav-link"><span>🔍</span> Research</a></li>
+      <li><a href="reviews.html" class="nav-link"><span>🔬</span> Code Review</a></li>
+      <li><a href="scrum.html" class="nav-link"><span>👥</span> Scrum Board</a></li>
+    </ul>
+  </nav>
+
+  <main class="main-content">
+    <header class="page-header">
+      <div>
+        <h1>Code Review Agent</h1>
+        <p class="subtitle">Static analysis + AI-powered review for Python, C, C++, JS</p>
+      </div>
+    </header>
+
+    <!-- Review by PR -->
+    <section class="card">
+      <div class="card-header"><h2>Review GitHub PR</h2></div>
+      <div class="query-form row">
+        <input id="pr-number" type="number" class="text-input" placeholder="PR number e.g. 42"/>
+        <button class="btn-primary" onclick="reviewPR()">🔬 Review PR</button>
+      </div>
+      <div id="pr-status" class="research-status hidden"></div>
+    </section>
+
+    <!-- Paste Code -->
+    <section class="card">
+      <div class="card-header"><h2>Review Pasted Code</h2></div>
+      <div class="query-form">
+        <div class="row" style="gap:8px; margin-bottom:8px">
+          <input id="code-filename" class="text-input" placeholder="filename.py" style="max-width:200px"/>
+        </div>
+        <textarea id="code-input" class="code-input" rows="10" placeholder="Paste your Python / C / C++ code here…"></textarea>
+        <button class="btn-primary" onclick="reviewCode()">🔬 Analyse Code</button>
+      </div>
+      <div id="code-review-result" class="review-result hidden"></div>
+    </section>
+
+    <!-- Past Reviews -->
+    <section class="card">
+      <div class="card-header">
+        <h2>Review History</h2>
+        <button class="btn-ghost" onclick="loadReviews()">↻ Refresh</button>
+      </div>
+      <div id="reviews-container"><div class="loading-spinner">⏳ Loading…</div></div>
+    </section>
+  </main>
+
+  <script src="/static/app.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', loadReviews);
+
+    async function reviewPR() {
+      const pr = parseInt(document.getElementById('pr-number').value);
+      if (!pr) return alert('Enter a PR number.');
+      const status = document.getElementById('pr-status');
+      status.textContent = `⏳ Reviewing PR #${pr}… This may take a minute.`;
+      status.className = 'research-status info';
+      status.classList.remove('hidden');
+      await fetch('/api/review_pr', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({pr_number: pr})});
+      status.textContent = '✅ Review started! Check GitHub for a new comment, and refresh history below.';
+      status.className = 'research-status success';
+      setTimeout(loadReviews, 10000);
+    }
+
+    async function reviewCode() {
+      const code = document.getElementById('code-input').value.trim();
+      const filename = document.getElementById('code-filename').value || 'snippet.py';
+      if (!code) return alert('Paste some code first.');
+      const resultBox = document.getElementById('code-review-result');
+      resultBox.classList.remove('hidden');
+      resultBox.innerHTML = '<div class="loading-spinner">🔬 Analysing…</div>';
+      try {
+        const res = await fetch('/api/review_code', {
+          method: 'POST',
+          headers: {'Content-Type':'application/json'},
+          body: JSON.stringify({code, filename})
+        });
+        const data = await res.json();
+        const issuesBadge = (data.issues || []).length;
+        resultBox.innerHTML = `
+          <div class="review-meta">
+            Complexity: <strong>${(data.complexity||0).toFixed(1)}</strong> |
+            Issues found: <strong>${issuesBadge}</strong>
+          </div>
+          <div class="review-summary markdown-body">${renderMarkdown(data.summary || '')}</div>
+          ${issuesBadge ? `<div class="issues-list">
+            ${(data.issues||[]).map(i=>`<div class="issue-item ${i.severity}">
+              <span class="issue-sev">${i.severity.toUpperCase()}</span>
+              <span>Line ${i.line}: ${i.message}</span>
+            </div>`).join('')}
+          </div>` : ''}`;
+      } catch(err) {
+        resultBox.innerHTML = `<div class="error-state">❌ ${err.message}</div>`;
+      }
+    }
+
+    async function loadReviews() {
+      const container = document.getElementById('reviews-container');
+      container.innerHTML = '<div class="loading-spinner">⏳ Loading…</div>';
+      try {
+        const res = await fetch('/api/reviews');
+        const data = await res.json();
+        const reviews = data.reviews || [];
+        if (!reviews.length) {
+          container.innerHTML = '<div class="empty-state">No reviews yet.</div>';
+          return;
+        }
+        container.innerHTML = reviews.map(r => `
+          <div class="review-card">
+            <div class="review-card-header">
+              <strong>PR #${r.pr_number}: ${r.pr_title||''}</strong>
+              <span class="review-author">by @${r.author}</span>
+              <span class="review-date">${new Date(r.reviewed_at).toLocaleString('en-IN')}</span>
+            </div>
+            <div class="review-badges">
+              <span class="badge complexity">Complexity: ${(r.complexity_score||0).toFixed(1)}</span>
+              <span class="badge issues">${(r.issues_found||[]).length} issues</span>
+            </div>
+            <div class="review-summary markdown-body">${renderMarkdown(r.review_summary||'').slice(0,400)}…</div>
+          </div>`).join('');
+      } catch(err) {
+        container.innerHTML = `<div class="error-state">❌ ${err.message}</div>`;
+      }
+    }
+
+    function renderMarkdown(t) {
+      return t.replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>')
+              .replace(/^## (.+)$/gm,'<h3>$1</h3>')
+              .replace(/^- (.+)$/gm,'<li>$1</li>')
+              .replace(/\n/g,'<br>');
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Research — Academic Orchestrator</title>
+  <link rel="stylesheet" href="/dashboard/static/style.css"/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+  <nav class="sidebar">
+    <div class="sidebar-logo"><span class="logo-icon">🎓</span><span class="logo-text">Orchestrator</span></div>
+    <ul class="nav-links">
+      <li><a href="index.html" class="nav-link"><span>📅</span> Deadlines</a></li>
+      <li><a href="research.html" class="nav-link"><span>🔍</span> Research</a></li>
+      <li><a href="reviews.html" class="nav-link"><span>🔬</span> Code Review</a></li>
+      <li><a href="scrum.html" class="nav-link"><span>👥</span> Scrum Board</a></li>
+    </ul>
+  </nav>
+
+  <main class="main-content">
+    <header class="page-header">
+      <div>
+        <h1>Autonomous Researcher</h1>
+        <p class="subtitle">Search GitHub repos, web articles, and synthesise a research brief with AI</p>
+      </div>
+    </header>
+
+    <!-- Query Box -->
+    <section class="card query-card">
+      <div class="card-header"><h2>New Research Query</h2></div>
+      <div class="query-form">
+        <textarea id="research-query" class="query-input" rows="3"
+          placeholder="e.g. 'Complex sorting algorithms in C with memory optimisation' or 'Neural network implementations for beginners'"></textarea>
+        <button class="btn-primary" onclick="runResearch()" id="research-btn">
+          🔍 Research
+        </button>
+      </div>
+      <div id="research-status" class="research-status hidden"></div>
+    </section>
+
+    <!-- Semantic Search -->
+    <section class="card">
+      <div class="card-header"><h2>Search Past Notes</h2></div>
+      <div class="query-form row">
+        <input id="semantic-query" class="text-input" placeholder="Search your research history…"/>
+        <button class="btn-secondary" onclick="semanticSearch()">🧠 Search</button>
+      </div>
+      <div id="semantic-results"></div>
+    </section>
+
+    <!-- Past Sessions -->
+    <section class="card">
+      <div class="card-header">
+        <h2>Research History</h2>
+        <button class="btn-ghost" onclick="loadSessions()">↻ Refresh</button>
+      </div>
+      <div id="sessions-container"><div class="loading-spinner">⏳ Loading…</div></div>
+    </section>
+  </main>
+
+  <script src="/static/app.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', loadSessions);
+
+    async function runResearch() {
+      const query = document.getElementById('research-query').value.trim();
+      if (!query) return alert('Please enter a research query.');
+      const btn = document.getElementById('research-btn');
+      const status = document.getElementById('research-status');
+      btn.disabled = true;
+      btn.textContent = '⏳ Researching…';
+      status.textContent = '🔄 Agent is searching GitHub + web and synthesising… This may take 30–60 seconds.';
+      status.classList.remove('hidden');
+      status.className = 'research-status info';
+      try {
+        const res = await fetch('/api/research', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({query})
+        });
+        const data = await res.json();
+        status.textContent = '✅ Research started! Refresh history in a moment.';
+        status.className = 'research-status success';
+        setTimeout(loadSessions, 8000);
+      } catch(err) {
+        status.textContent = '❌ Error: ' + err.message;
+        status.className = 'research-status error';
+      }
+      btn.disabled = false;
+      btn.textContent = '🔍 Research';
+    }
+
+    async function loadSessions() {
+      const container = document.getElementById('sessions-container');
+      container.innerHTML = '<div class="loading-spinner">⏳ Loading…</div>';
+      try {
+        const res = await fetch('/api/research');
+        const data = await res.json();
+        const sessions = data.sessions || [];
+        if (!sessions.length) {
+          container.innerHTML = '<div class="empty-state">No research sessions yet. Run a query above!</div>';
+          return;
+        }
+        container.innerHTML = sessions.map(buildSessionCard).join('');
+      } catch(err) {
+        container.innerHTML = `<div class="error-state">❌ ${err.message}</div>`;
+      }
+    }
+
+    function buildSessionCard(s) {
+      const repos = (s.github_repos || []).slice(0, 3);
+      const sources = (s.sources_json || []).slice(0, 3);
+      const date = new Date(s.created_at).toLocaleString('en-IN');
+      return `
+        <div class="session-card">
+          <div class="session-header">
+            <strong class="session-query">"${s.query}"</strong>
+            <span class="session-date">${date}</span>
+          </div>
+          <div class="session-summary markdown-body">${renderMarkdown(s.summary || '')}</div>
+          <div class="session-resources">
+            ${repos.length ? `<div class="resource-group">
+              <h4>⭐ GitHub Repos</h4>
+              ${repos.map(r => `<a href="${r.url}" target="_blank" class="resource-link github">
+                ${r.name} <span class="stars">★ ${r.stars}</span></a>`).join('')}
+            </div>` : ''}
+            ${sources.length ? `<div class="resource-group">
+              <h4>🌐 Web Sources</h4>
+              ${sources.map(s => `<a href="${s.url}" target="_blank" class="resource-link web">${s.title}</a>`).join('')}
+            </div>` : ''}
+          </div>
+        </div>`;
+    }
+
+    async function semanticSearch() {
+      const q = document.getElementById('semantic-query').value.trim();
+      if (!q) return;
+      const container = document.getElementById('semantic-results');
+      container.innerHTML = '<div class="loading-spinner">🧠 Searching…</div>';
+      try {
+        const res = await fetch(`/api/semantic_search?q=${encodeURIComponent(q)}`);
+        const data = await res.json();
+        const results = data.results || [];
+        if (!results.length) {
+          container.innerHTML = '<div class="empty-state">No matching notes found.</div>';
+          return;
+        }
+        container.innerHTML = results.map((r, i) =>
+          `<div class="semantic-result"><strong>#${i+1}</strong> <em>(query: ${r.meta?.query})</em><p>${r.text?.slice(0, 300)}…</p></div>`
+        ).join('');
+      } catch(err) {
+        container.innerHTML = `<div class="error-state">❌ ${err.message}</div>`;
+      }
+    }
+
+    function renderMarkdown(text) {
+      // Very basic markdown → HTML conversion
+      return text
+        .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+        .replace(/^## (.+)$/gm, '<h3>$1</h3>')
+        .replace(/^### (.+)$/gm, '<h4>$1</h4>')
+        .replace(/^- (.+)$/gm, '<li>$1</li>')
+        .replace(/\n/g, '<br>');
+    }
+  </script>
+</body>
+</html>
