@@ -44,3 +44,5 @@ watchdog==4.0.0
 python-crontab==3.0.0
 loguru==0.7.2
 rich==13.7.1
+
+gunicorn==21.2.0
