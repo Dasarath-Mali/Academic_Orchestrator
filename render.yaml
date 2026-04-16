@@ -2,12 +2,20 @@ services:
   - type: web
     name: academic-orchestrator
     env: python
-    buildCommand: pip install -r requirements.txt && python -m spacy download en_core_web_sm
-    startCommand: gunicorn dashboard.app:app --bind 0.0.0.0:$PORT
+    region: singapore          # closest to India — change to oregon/frankfurt if needed
+    plan: free
+    buildCommand: "pip install -r requirements.txt && python -m spacy download en_core_web_sm"
+    startCommand: "gunicorn dashboard.app:app --bind 0.0.0.0:$PORT --workers 1 --timeout 120"
     envVars:
       - key: GEMINI_API_KEY
         sync: false
+      - key: GEMINI_MODEL
+        value: gemini-1.5-flash
       - key: GITHUB_TOKEN
+        sync: false
+      - key: GITHUB_REPO_OWNER
+        sync: false
+      - key: GITHUB_REPO_NAME
         sync: false
       - key: DISCORD_BOT_TOKEN
         sync: false
@@ -17,11 +25,15 @@ services:
         sync: false
       - key: DB_HOST
         sync: false
+      - key: DB_PORT
+        value: "3306"
+      - key: DB_NAME
+        sync: false
       - key: DB_USER
         sync: false
       - key: DB_PASSWORD
         sync: false
-      - key: DB_NAME
-        sync: false
       - key: FLASK_SECRET_KEY
         sync: false
+      - key: PYTHON_VERSION
+        value: "3.11.0"

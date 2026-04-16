@@ -18,7 +18,7 @@ from mysql.connector import MySQLConnection, Error as MySQLError
 from dotenv import load_dotenv
 from loguru import logger
 
-load_dotenv("config/.env")
+load_dotenv()  # works locally (reads config/.env via .env search) and on Render (reads env vars)
 
 
 class DatabaseManager:

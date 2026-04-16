@@ -25,7 +25,7 @@ from crontab import CronTab
 from dotenv import load_dotenv
 from loguru import logger
 
-load_dotenv("config/.env")
+load_dotenv()  # works locally and on Render
 
 # ── Constants ─────────────────────────────────────────────────────────────────
 DISCORD_TOKEN = os.getenv("DISCORD_BOT_TOKEN", "")

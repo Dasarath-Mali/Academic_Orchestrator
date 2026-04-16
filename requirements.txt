@@ -6,7 +6,9 @@ schedule==1.2.1
 # ─── PDF / NLP ────────────────────────────────────────────────────────────────
 pdfplumber==0.11.0
 spacy==3.7.4
-en-core-web-sm @ https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.7.1/en_core_web_sm-3.7.1-py3-none-any.whl
+# NOTE: spaCy model is installed via build command, NOT here
+# Build command in render.yaml:
+#   pip install -r requirements.txt && python -m spacy download en_core_web_sm
 
 # ─── Database ─────────────────────────────────────────────────────────────────
 mysql-connector-python==8.3.0
@@ -19,12 +21,11 @@ sentence-transformers==2.7.0
 # ─── Web / Research ───────────────────────────────────────────────────────────
 requests==2.31.0
 beautifulsoup4==4.12.3
-playwright==1.43.0
 
 # ─── GitHub Integration ───────────────────────────────────────────────────────
 PyGithub==2.3.0
 
-# ─── AI / LLM — Google Gemini (FREE tier available) ──────────────────────────
+# ─── AI / LLM — Google Gemini (FREE) ─────────────────────────────────────────
 google-generativeai==0.7.2
 
 # ─── Notifications ────────────────────────────────────────────────────────────
@@ -33,6 +34,7 @@ discord.py==2.3.2
 # ─── Dashboard ────────────────────────────────────────────────────────────────
 flask==3.0.3
 flask-sqlalchemy==3.1.1
+gunicorn==21.2.0
 
 # ─── Static Analysis ──────────────────────────────────────────────────────────
 pylint==3.1.0
@@ -44,5 +46,3 @@ watchdog==4.0.0
 python-crontab==3.0.0
 loguru==0.7.2
 rich==13.7.1
-
-gunicorn==21.2.0

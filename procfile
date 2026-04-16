@@ -1,2 +1,1 @@
-web: python dashboard/app.py
-worker: python main.py --phase 1
+web: gunicorn dashboard.app:app --bind 0.0.0.0:$PORT --workers 1 --timeout 120
